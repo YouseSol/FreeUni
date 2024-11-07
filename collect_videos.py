@@ -1,3 +1,5 @@
+import argparse
+
 import json, os
 
 import requests
@@ -18,21 +20,23 @@ class YoutubeSearch(object):
     def __init__(self, youtube_api_client: YoutubeAPIClient, query: str, max_results: int):
         self.client = youtube_api_client
         self.params = {
+            "part": "snippet",
             "maxResults": max_results,
             "key": youtube_api_client.google_app_api_key,
+            "videoDuration": "short",
+            "type": "video",
             "q": query
         }
-        self.testing_count = 0
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        if self.params and self.testing_count <= 2:
+        if self.params:
             response = requests.get(url=self.client.url, params=self.params)
 
             if not response.ok:
-                raise Exception(response.status_code, response.text, self.params["pageToken"])
+                raise Exception(response.status_code, response.text, self.params)
 
             data = response.json()
 
@@ -41,8 +45,6 @@ class YoutubeSearch(object):
             else:
                 self.params = dict()
 
-            self.testing_count = self.testing_count + 1
-
             return data["items"]
         else:
             raise StopIteration()
@@ -50,10 +52,20 @@ class YoutubeSearch(object):
 def main():
     client = YoutubeAPIClient(google_app_api_key=os.environ["GOOGLE_APP_API_KEY"])
 
-    for results in client.query("mountain bike"):
-        print(json.dumps(results, indent=2))
+    data = list()
+
+    for results in client.query("pablo marçal", max_results=50):
+        data.extend(results)
+
+    print(json.dumps(data, indent=2))
 
 if __name__ == "__main__":
     dotenv.load_dotenv()
 
-    main()
+    parser = argparse.ArgumentParser(description="This script depends on the env var: GOOGLE_APP_API_KEY")
+
+    parser.add_argument("query", help="Query to search for short's data from Youtube Data API v3.")
+
+    args = parser.parse_args()
+
+    main(args.query)
